@@ -173,7 +173,7 @@ toHtml' (InlineLink text src title) = lOpen ++ text ++ lClose
     lClose = "</a>\n"
     title' = if title == ""
                 then ""
-                else " title=" ++ title
+                else " title=\"" ++ title ++ "\""
 
 toHtml' (InlineImageLink desc src title) = "<img" ++ s ++ a ++ t ++ " />\n"
   where
@@ -202,25 +202,25 @@ toCmBlock i (BlockQuote _ _ bs) = indText ++ "\n"
 toCmBlock i (FencedCode _ lvl info text) = ind ++ fcOpen ++ ind ++ text ++ ind ++ fcClose
   where
     fcOpen = replicate lvl '`' ++ " " ++ info ++ "\n"
-    fcClose = "\n" ++ replicate lvl '`' ++ "\n"
+    fcClose = "\n" ++ replicate lvl '`' ++ "\n\n"
     ind = indent i
 
-toCmBlock i (IndentedCode _ text) = indent i ++ format text ++ "\n"
+toCmBlock i (IndentedCode _ text) = indent i ++ format text ++ "\n\n"
   where
     format s = unlines $ map (indent (i + 4) ++) . lines $ s
 
-toCmBlock i (AtxHeading _ l il) = indent i ++ atxPref ++ concatMap toCmInline il ++ "\n"
+toCmBlock i (AtxHeading _ l il) = indent i ++ atxPref ++ concatMap toCmInline il ++ "\n\n"
   where
     atxPref = replicate l '#' ++ " "
 
-toCmBlock i (SetextHeading l il) = ind ++ concatMap toCmInline il ++ "\n" ++ ind ++ setext
+toCmBlock i (SetextHeading l il) = ind ++ concatMap toCmInline il ++ "\n" ++ ind ++ setext ++ "\n"
   where
     setext = if l == 1 then "===\n" else "---\n"
     ind = indent i
 
 toCmBlock i (ThematicBreak c) = "\n" ++ indent i ++ replicate 3 c ++ "\n\n"
 
-toCmBlock i (Paragraph il) = indent i ++ concatMap toCmInline il ++ "\n"
+toCmBlock i (Paragraph il) = indent i ++ concatMap toCmInline il ++ "\n\n"
 
 toCmBlock i ls@(List (OrderedList st en del) _ its) = concatMap (toCmListItem d) its
   where
@@ -241,4 +241,20 @@ toCmInline :: Inline -> String
 
 toCmInline (RawText t) = t
 
-toCmInline _ = ""
+toCmInline (Emphasis c ils) = [c] ++ concatMap toCmInline ils ++ [c]
+
+toCmInline (Strong c ils) = [c,c] ++ concatMap toCmInline ils ++ [c,c]
+
+toCmInline (CodeSpan t) = "`" ++ t ++ "`"
+
+toCmInline (InlineLink text src title) = "[" ++ text ++ "](" ++ src ++ lClose
+  where
+    lClose = if title == ""
+             then ")"
+             else " \"" ++ title ++ "\")"
+
+toCmInline (InlineImageLink t src title) = "![" ++ t ++ "](" ++ src ++ lClose
+  where
+    lClose = if title == ""
+             then ")"
+             else " \"" ++ title ++ "\")"

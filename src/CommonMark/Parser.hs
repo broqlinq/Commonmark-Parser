@@ -332,7 +332,10 @@ pLinkReference = do
     whitespace
     link <- many1 $ noneOf " \t\r\n"
     whitespace
-    title <- option "" $ many1 $ noneOf " \t\r\n"
+    title <- option "" (do char '"'
+                           t <- many1 $ noneOf " \t\r\n\""
+                           char '"'
+                           return t)
     whitespace
     eol <|> eof
     insertReference (key, (link, title))
@@ -404,6 +407,8 @@ pInlines = many $ do
         try pCodeSpan
     <|> try pInlineImageLink
     <|> try pInlineLink
+    <|> try pStrongEmphasis
+    <|> try pEmphasis
     <|> (do
         c <- anyChar
         txt <- many $ noneOf "`*_[!"
@@ -489,8 +494,34 @@ pInlineImageLink = do
 
 pStrongEmphasis :: Parsec String BState Inline
 pStrongEmphasis = do
-    
-    return $ RawText ""
+    c <- oneOf "*_"
+    char c
+    pre <- many $ char c
+    inl <- many1 $ noneOf [c]
+    count 2 $ char c
+    post' <- many $ char c
+    -- rest <- (guard (length pre > length post') >> many anyChar) <|> return ""
+    -- rest <- many anyChar
+    st <- getState
+    let res = runParser pInlines st "" $ pre ++ inl ++ post'
+    case res of
+        Right ils -> do return $ Strong c ils
+        _         -> error "inline parse failed"
+
+pEmphasis :: Parsec String BState Inline
+pEmphasis = do
+    c <- oneOf "*_"
+    pre <- many $ char c
+    t <- many1 $ noneOf [c]
+    char c
+    post <- many $ char c
+    -- rest <- (guard (length pre > length post) >> many anyChar) <|> return ""
+    -- rest <- many anyChar
+    st <- getState
+    let r = runParser pInlines st "" $ pre ++ t ++ post
+    case r of
+        Right ils -> do return $ Emphasis c ils
+        _         -> error "inline parse failed"
 
 {-- Utility parsers --}
 
